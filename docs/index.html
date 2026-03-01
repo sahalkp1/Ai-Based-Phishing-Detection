@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PhishGuard — AI Phishing Detector</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+  <style>
+    /* ── Reset & Variables ──────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0a0a0f;
+      --surface:    #111118;
+      --border:     #1e1e2e;
+      --accent:     #ff3c5f;
+      --accent2:    #00d4ff;
+      --safe:       #00e676;
+      --warn:       #ff3c5f;
+      --text:       #e8e8f0;
+      --muted:      #6b6b80;
+      --mono:       'Space Mono', monospace;
+      --sans:       'Syne', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Grid background ────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,60,95,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,60,95,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      position: relative;
+      z-index: 10;
+      padding: 2rem 2rem 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-icon {
+      width: 40px; height: 40px;
+      background: var(--accent);
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      animation: pulse-hex 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse-hex {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255,60,95,0.4); }
+      50% { box-shadow: 0 0 20px 8px rgba(255,60,95,0.15); }
+    }
+
+    .logo-text {
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-text span { color: var(--accent); }
+
+    .api-badge {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--accent2);
+      border: 1px solid var(--accent2);
+      padding: 0.3rem 0.7rem;
+      letter-spacing: 0.1em;
+    }
+
+    /* ── Hero ───────────────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      z-index: 10;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 3rem 2rem 2rem;
+    }
+
+    .hero-tag {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--accent);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .hero-tag::before {
+      content: '';
+      display: block;
+      width: 20px; height: 1px;
+      background: var(--accent);
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin-bottom: 1rem;
+    }
+
+    h1 .highlight {
+      color: var(--accent);
+      position: relative;
+    }
+
+    .hero-sub {
+      color: var(--muted);
+      font-size: 1rem;
+      max-width: 500px;
+      line-height: 1.6;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    /* ── Main Card ──────────────────────────────────────────────── */
+    .main {
+      position: relative;
+      z-index: 10;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 2rem 4rem;
+    }
+
+    /* ── Mode Tabs ──────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.9rem 1.5rem;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: -1px;
+    }
+
+    .tab:hover { color: var(--text); }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ── Form Panel ─────────────────────────────────────────────── */
+    .panel {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: none;
+      padding: 2rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .panel.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .field { margin-bottom: 1.5rem; }
+
+    label {
+      display: block;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+    }
+
+    textarea, input[type="text"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      padding: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+      resize: vertical;
+    }
+
+    textarea { min-height: 140px; line-height: 1.6; }
+
+    textarea:focus, input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    textarea::placeholder, input::placeholder {
+      color: var(--muted);
+      opacity: 0.6;
+    }
+
+    /* ── Button ─────────────────────────────────────────────────── */
+    .btn {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 1rem 2.5rem;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .btn:hover {
+      background: #ff1a40;
+      transform: translateY(-1px);
+    }
+
+    .btn:active { transform: translateY(0); }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    .btn.loading .spinner { display: block; }
+    .btn.loading .btn-text { opacity: 0.7; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Result Box ─────────────────────────────────────────────── */
+    .result-box {
+      margin-top: 2rem;
+      border: 1px solid var(--border);
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .result-box.show { display: block; }
+
+    .result-header {
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-header.phishing {
+      background: rgba(255, 60, 95, 0.08);
+      border-bottom-color: rgba(255,60,95,0.3);
+    }
+
+    .result-header.safe {
+      background: rgba(0, 230, 118, 0.06);
+      border-bottom-color: rgba(0,230,118,0.3);
+    }
+
+    .verdict {
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .verdict.phishing { color: var(--warn); }
+    .verdict.safe     { color: var(--safe); }
+
+    .confidence-badge {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      padding: 0.3rem 0.8rem;
+      letter-spacing: 0.1em;
+    }
+
+    .confidence-badge.phishing {
+      background: rgba(255,60,95,0.15);
+      color: var(--warn);
+      border: 1px solid rgba(255,60,95,0.3);
+    }
+
+    .confidence-badge.safe {
+      background: rgba(0,230,118,0.1);
+      color: var(--safe);
+      border: 1px solid rgba(0,230,118,0.3);
+    }
+
+    /* ── Score Bars ─────────────────────────────────────────────── */
+    .scores {
+      padding: 1.5rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .score-row {
+      display: grid;
+      grid-template-columns: 120px 1fr 60px;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .score-label {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .score-bar-track {
+      height: 6px;
+      background: var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .score-bar-fill {
+      height: 100%;
+      width: 0%;
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .score-bar-fill.high   { background: var(--warn); }
+    .score-bar-fill.medium { background: #ffb300; }
+    .score-bar-fill.low    { background: var(--safe); }
+
+    .score-val {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      text-align: right;
+      color: var(--text);
+    }
+
+    /* ── Formula ────────────────────────────────────────────────── */
+    .formula-box {
+      margin: 0 1.5rem 1.5rem;
+      padding: 0.8rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    .formula-box span { color: var(--accent2); }
+
+    /* ── Signals ────────────────────────────────────────────────── */
+    .signals {
+      padding: 0 1.5rem 1.5rem;
+    }
+
+    .signals-title {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .signal-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .signal-tag {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      padding: 0.3rem 0.7rem;
+      background: rgba(255,60,95,0.08);
+      border: 1px solid rgba(255,60,95,0.2);
+      color: var(--warn);
+    }
+
+    /* ── Risk level ─────────────────────────────────────────────── */
+    .risk-level {
+      padding: 0.6rem 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .risk-level strong { color: var(--text); }
+
+    /* ── Error ──────────────────────────────────────────────────── */
+    .error-box {
+      margin-top: 1.5rem;
+      padding: 1rem 1.5rem;
+      background: rgba(255,60,95,0.08);
+      border: 1px solid rgba(255,60,95,0.3);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--warn);
+      display: none;
+    }
+
+    .error-box.show { display: block; }
+
+    /* ── Footer ─────────────────────────────────────────────────── */
+    footer {
+      position: relative;
+      z-index: 10;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1.5rem 2rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer p {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    footer a {
+      color: var(--accent2);
+      text-decoration: none;
+    }
+
+    /* ── Responsive ─────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .score-row { grid-template-columns: 90px 1fr 50px; }
+      .tab { padding: 0.8rem 1rem; font-size: 0.65rem; }
+      h1 { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🛡</div>
+      <div class="logo-text">Phish<span>Guard</span></div>
+    </div>
+    <div class="api-badge">API: LIVE</div>
+  </header>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-tag">AI-Powered Detection System</div>
+    <h1>Detect <span class="highlight">Phishing</span><br/>Before It Strikes</h1>
+    <p class="hero-sub">Multi-modal analysis using DistilBERT NLP + Random Forest URL classifier. Final Score = (0.6 × NLP) + (0.4 × URL)</p>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('combined')">⚡ Combined</button>
+      <button class="tab" onclick="switchTab('text')">📧 Email Text</button>
+      <button class="tab" onclick="switchTab('url')">🔗 URL Only</button>
+    </div>
+
+    <!-- Panel: Combined -->
+    <div class="panel active" id="panel-combined">
+      <div class="field">
+        <label>Email Body Text</label>
+        <textarea id="combined-text" placeholder="Paste email content here... URLs inside will be auto-detected."></textarea>
+      </div>
+      <div class="field">
+        <label>URL (optional — auto-extracted if left blank)</label>
+        <input type="text" id="combined-url" placeholder="https://example.com"/>
+      </div>
+      <button class="btn" id="btn-combined" onclick="checkCombined()">
+        <div class="spinner"></div>
+        <span class="btn-text">Analyse Now</span>
+      </button>
+      <div class="error-box" id="err-combined"></div>
+      <div class="result-box" id="result-combined"></div>
+    </div>
+
+    <!-- Panel: Text -->
+    <div class="panel" id="panel-text">
+      <div class="field">
+        <label>Email Body Text</label>
+        <textarea id="text-input" placeholder="Your account has been suspended. Click here to verify your identity immediately..."></textarea>
+      </div>
+      <button class="btn" id="btn-text" onclick="checkText()">
+        <div class="spinner"></div>
+        <span class="btn-text">Analyse Text</span>
+      </button>
+      <div class="error-box" id="err-text"></div>
+      <div class="result-box" id="result-text"></div>
+    </div>
+
+    <!-- Panel: URL -->
+    <div class="panel" id="panel-url">
+      <div class="field">
+        <label>URL to Analyse</label>
+        <input type="text" id="url-input" placeholder="http://paypal-secure-verify.tk/login.php"/>
+      </div>
+      <button class="btn" id="btn-url" onclick="checkUrl()">
+        <div class="spinner"></div>
+        <span class="btn-text">Analyse URL</span>
+      </button>
+      <div class="error-box" id="err-url"></div>
+      <div class="result-box" id="result-url"></div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <p>PhishGuard — AI-Based Phishing Detection System</p>
+    <p><a href="https://sahal12-phishing-detection-api.hf.space/docs" target="_blank">API Docs →</a></p>
+  </footer>
+
+  <script>
+    const API = 'https://sahal12-phishing-detection-api.hf.space';
+
+    // ── Tab switching ──────────────────────────────────────────────
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('panel-' + tab).classList.add('active');
+    }
+
+    // ── Loading state ──────────────────────────────────────────────
+    function setLoading(btnId, state) {
+      const btn = document.getElementById(btnId);
+      if (state) {
+        btn.classList.add('loading');
+        btn.disabled = true;
+      } else {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    }
+
+    // ── Score bar color ────────────────────────────────────────────
+    function scoreClass(val) {
+      if (val > 0.7) return 'high';
+      if (val > 0.4) return 'medium';
+      return 'low';
+    }
+
+    // ── Render result ──────────────────────────────────────────────
+    function renderResult(containerId, data, mode) {
+      const box = document.getElementById(containerId);
+      const errBox = document.getElementById(containerId.replace('result-', 'err-'));
+      errBox.classList.remove('show');
+
+      let isPhishing, verdict, confidence, nlpScore, urlScore, finalScore, formula, signals, riskLevel;
+
+      if (mode === 'combined') {
+        isPhishing  = data.result.is_phishing;
+        verdict     = data.result.verdict;
+        confidence  = data.result.confidence;
+        nlpScore    = data.scores.nlp_score;
+        urlScore    = data.scores.url_score;
+        finalScore  = data.scores.final_score;
+        formula     = data.scores.formula;
+        riskLevel   = data.result.risk_level;
+        signals     = [];
+      } else if (mode === 'text') {
+        isPhishing  = data.is_phishing;
+        verdict     = data.verdict;
+        confidence  = data.confidence;
+        nlpScore    = data.nlp_score;
+        urlScore    = null;
+        finalScore  = data.nlp_score;
+        formula     = null;
+        riskLevel   = data.risk_level;
+        signals     = [];
+      } else {
+        isPhishing  = data.is_phishing;
+        verdict     = data.verdict;
+        confidence  = data.confidence;
+        nlpScore    = null;
+        urlScore    = data.url_score;
+        finalScore  = data.url_score;
+        formula     = null;
+        riskLevel   = data.risk_level;
+        signals     = data.suspicious_signals || [];
+      }
+
+      const cls = isPhishing ? 'phishing' : 'safe';
+      const icon = isPhishing ? '⚠' : '✓';
+
+      let scoresHTML = '';
+
+      if (nlpScore !== null) {
+        scoresHTML += `
+          <div class="score-row">
+            <div class="score-label">NLP Score</div>
+            <div class="score-bar-track">
+              <div class="score-bar-fill ${scoreClass(nlpScore)}" id="bar-nlp-${containerId}" style="width:0%"></div>
+            </div>
+            <div class="score-val">${(nlpScore * 100).toFixed(1)}%</div>
+          </div>`;
+      }
+
+      if (urlScore !== null) {
+        scoresHTML += `
+          <div class="score-row">
+            <div class="score-label">URL Score</div>
+            <div class="score-bar-track">
+              <div class="score-bar-fill ${scoreClass(urlScore)}" id="bar-url-${containerId}" style="width:0%"></div>
+            </div>
+            <div class="score-val">${(urlScore * 100).toFixed(1)}%</div>
+          </div>`;
+      }
+
+      scoresHTML += `
+        <div class="score-row">
+          <div class="score-label">Final Score</div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill ${scoreClass(finalScore)}" id="bar-final-${containerId}" style="width:0%"></div>
+          </div>
+          <div class="score-val">${(finalScore * 100).toFixed(1)}%</div>
+        </div>`;
+
+      const formulaHTML = formula ? `
+        <div class="formula-box">
+          <span>Formula:</span> ${formula}
+        </div>` : '';
+
+      const signalsHTML = signals.length ? `
+        <div class="signals">
+          <div class="signals-title">Suspicious Signals Detected</div>
+          <div class="signal-tags">
+            ${signals.map(s => `<span class="signal-tag">${s}</span>`).join('')}
+          </div>
+        </div>` : '';
+
+      box.innerHTML = `
+        <div class="result-header ${cls}">
+          <div class="verdict ${cls}">${icon} ${verdict}</div>
+          <div class="confidence-badge ${cls}">${confidence}</div>
+        </div>
+        <div class="scores">${scoresHTML}</div>
+        ${formulaHTML}
+        ${signalsHTML}
+        <div class="risk-level">Risk Level: <strong>${riskLevel}</strong> &nbsp;|&nbsp; Threshold: 70%</div>
+      `;
+
+      box.classList.add('show');
+
+      // Animate bars after render
+      setTimeout(() => {
+        if (nlpScore !== null) {
+          const el = document.getElementById(`bar-nlp-${containerId}`);
+          if (el) el.style.width = (nlpScore * 100) + '%';
+        }
+        if (urlScore !== null) {
+          const el = document.getElementById(`bar-url-${containerId}`);
+          if (el) el.style.width = (urlScore * 100) + '%';
+        }
+        const finalEl = document.getElementById(`bar-final-${containerId}`);
+        if (finalEl) finalEl.style.width = (finalScore * 100) + '%';
+      }, 100);
+    }
+
+    // ── Show error ─────────────────────────────────────────────────
+    function showError(errId, msg) {
+      const box = document.getElementById(errId);
+      box.textContent = '⚠ ' + msg;
+      box.classList.add('show');
+    }
+
+    // ── API calls ──────────────────────────────────────────────────
+    async function checkCombined() {
+      const text = document.getElementById('combined-text').value.trim();
+      const url  = document.getElementById('combined-url').value.trim() || null;
+      if (!text) { showError('err-combined', 'Please enter email text.'); return; }
+
+      setLoading('btn-combined', true);
+      document.getElementById('result-combined').classList.remove('show');
+      document.getElementById('err-combined').classList.remove('show');
+
+      try {
+        const res = await fetch(`${API}/check-combined`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ text, url })
+        });
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        const data = await res.json();
+        renderResult('result-combined', data, 'combined');
+      } catch(e) {
+        showError('err-combined', e.message || 'Failed to reach API. Check your connection.');
+      } finally {
+        setLoading('btn-combined', false);
+      }
+    }
+
+    async function checkText() {
+      const text = document.getElementById('text-input').value.trim();
+      if (!text) { showError('err-text', 'Please enter email text.'); return; }
+
+      setLoading('btn-text', true);
+      document.getElementById('result-text').classList.remove('show');
+      document.getElementById('err-text').classList.remove('show');
+
+      try {
+        const res = await fetch(`${API}/check-text`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ text })
+        });
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        const data = await res.json();
+        renderResult('result-text', data, 'text');
+      } catch(e) {
+        showError('err-text', e.message || 'Failed to reach API.');
+      } finally {
+        setLoading('btn-text', false);
+      }
+    }
+
+    async function checkUrl() {
+      const url = document.getElementById('url-input').value.trim();
+      if (!url) { showError('err-url', 'Please enter a URL.'); return; }
+
+      setLoading('btn-url', true);
+      document.getElementById('result-url').classList.remove('show');
+      document.getElementById('err-url').classList.remove('show');
+
+      try {
+        const res = await fetch(`${API}/check-url`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ url })
+        });
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        const data = await res.json();
+        renderResult('result-url', data, 'url');
+      } catch(e) {
+        showError('err-url', e.message || 'Failed to reach API.');
+      } finally {
+        setLoading('btn-url', false);
+      }
+    }
+
+    // Enter key support
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.ctrlKey) {
+        const active = document.querySelector('.panel.active').id;
+        if (active === 'panel-combined') checkCombined();
+        if (active === 'panel-text')     checkText();
+        if (active === 'panel-url')      checkUrl();
+      }
+    });
+  </script>
+</body>
+</html>
